@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- wordpress_v1alpha1_wordpress.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples
