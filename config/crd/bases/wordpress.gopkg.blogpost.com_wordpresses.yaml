@@ -34,6 +34,14 @@ spec:
           spec:
             description: WordpressSpec defines the desired state of Wordpress
             properties:
+              mysqlReplicas:
+                description: MysqlReplicas is the number of Mysql replicas
+                format: int32
+                type: integer
+              replicas:
+                description: Replicas is the number of Wordpress replicas
+                format: int32
+                type: integer
               sqlRootPassword:
                 description: SqlRootPassword can be used to set the root password
                   for the MySQL database

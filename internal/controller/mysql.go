@@ -6,6 +6,7 @@ import (
 
 	v1 "github.com/vyas-git/wordpress-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +14,228 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// Creates a CronJob for MySQL backups
+// func (r *WordpressReconciler) cronJobForMysqlBackup(cr *v1.Wordpress) *batchv1.CronJob {
+// 	labels := map[string]string{
+// 		"app": cr.Name,
+// 	}
+
+// 	cronJob := &batchv1.CronJob{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "mysql-backup-cronjob",
+// 			Namespace: cr.Namespace,
+// 			Labels:    labels,
+// 		},
+// 		Spec: batchv1.CronJobSpec{
+// 			Schedule: "* * * * *", // Every minute
+// 			JobTemplate: batchv1.JobTemplateSpec{
+// 				Spec: batchv1.JobSpec{
+// 					Template: corev1.PodTemplateSpec{
+// 						Spec: corev1.PodSpec{
+// 							Containers: []corev1.Container{
+// 								{
+// 									Name:  "mysql-backup",
+// 									Image: "mysql:5.6",
+// 									Command: []string{
+// 										"sh",
+// 										"-c",
+// 										"mysqldump -u root -p$MYSQL_ROOT_PASSWORD wordpress > /backup/wordpress_backup.sql",
+// 									},
+// 									Env: []corev1.EnvVar{
+// 										{
+// 											Name:  "MYSQL_ROOT_PASSWORD",
+// 											Value: cr.Spec.SqlRootPassword,
+// 										},
+// 									},
+// 									VolumeMounts: []corev1.VolumeMount{
+// 										{
+// 											Name:      "backup-storage",
+// 											MountPath: "/backup",
+// 										},
+// 									},
+// 								},
+// 							},
+// 							RestartPolicy: corev1.RestartPolicyOnFailure,
+// 							Volumes: []corev1.Volume{
+// 								{
+// 									Name: "backup-storage",
+// 									VolumeSource: corev1.VolumeSource{
+// 										PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+// 											ClaimName: "backup-pv-claim",
+// 										},
+// 									},
+// 								},
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
+
+// 	controllerutil.SetControllerReference(cr, cronJob, r.Scheme)
+// 	return cronJob
+// }
+
+func (r *WordpressReconciler) cronJobForMysqlBackup(cr *v1.Wordpress) *batchv1.CronJob {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+
+	cronJob := &batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mysql-backup-cronjob",
+			Namespace: cr.Namespace,
+			Labels:    labels,
+		},
+		Spec: batchv1.CronJobSpec{
+			Schedule: "0 */6 * * *", // Every 6 hours
+			JobTemplate: batchv1.JobTemplateSpec{
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "mysql-backup",
+									Image: "mysql:5.6",
+									Command: []string{
+										"sh",
+										"-c",
+										"mysqldump -u root -p$MYSQL_ROOT_PASSWORD wordpress > /backup/wordpress_backup.sql",
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  "MYSQL_ROOT_PASSWORD",
+											Value: cr.Spec.SqlRootPassword,
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "backup-storage",
+											MountPath: "/backup",
+										},
+									},
+								},
+							},
+							RestartPolicy: corev1.RestartPolicyOnFailure,
+							Volumes: []corev1.Volume{
+								{
+									Name: "backup-storage",
+									VolumeSource: corev1.VolumeSource{
+										PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+											ClaimName: "backup-pv-claim",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	controllerutil.SetControllerReference(cr, cronJob, r.Scheme)
+	return cronJob
+}
+
+// Creates a PersistentVolumeClaim for MySQL backups
+func (r *WordpressReconciler) pvcForBackup(cr *v1.Wordpress) *corev1.PersistentVolumeClaim {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "backup-pv-claim",
+			Namespace: cr.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
+			Resources: corev1.ResourceRequirements{
+				Requests: map[corev1.ResourceName]resource.Quantity{
+					corev1.ResourceStorage: resource.MustParse("10Gi"),
+				},
+			},
+		},
+	}
+
+	controllerutil.SetControllerReference(cr, pvc, r.Scheme)
+	return pvc
+}
+
+//Deployment for Mysql
+// func (r *WordpressReconciler) deploymentForMysql(cr *v1.Wordpress) *appsv1.Deployment {
+// 	labels := map[string]string{
+// 		"app": cr.Name,
+// 	}
+// 	matchlabels := map[string]string{
+// 		"app":  cr.Name,
+// 		"tier": "mysql",
+// 	}
+
+// 	dep := &appsv1.Deployment{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "wordpress-mysql",
+// 			Namespace: cr.Namespace,
+// 			Labels:    labels,
+// 		},
+
+// 		Spec: appsv1.DeploymentSpec{
+// 			Selector: &metav1.LabelSelector{
+// 				MatchLabels: matchlabels,
+// 			},
+// 			Template: corev1.PodTemplateSpec{
+// 				ObjectMeta: metav1.ObjectMeta{
+// 					Labels: matchlabels,
+// 				},
+// 				Spec: corev1.PodSpec{
+// 					Containers: []corev1.Container{{
+// 						Image: "mysql",
+
+// 						Name: "mysql",
+
+// 						Env: []corev1.EnvVar{
+// 							{
+// 								Name:  "MYSQL_ROOT_PASSWORD",
+// 								Value: cr.Spec.SqlRootPassword,
+// 							},
+// 						},
+
+// 						Ports: []corev1.ContainerPort{{
+// 							ContainerPort: 3306,
+// 							Name:          "mysql",
+// 						}},
+// 						VolumeMounts: []corev1.VolumeMount{
+// 							{
+// 								Name:      "mysql-persistent-storage",
+// 								MountPath: "/var/lib/mysql",
+// 							},
+// 						},
+// 					},
+// 					},
+
+// 					Volumes: []corev1.Volume{
+
+// 						{
+// 							Name: "mysql-persistent-storage",
+// 							VolumeSource: corev1.VolumeSource{
+
+// 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+// 									ClaimName: "mysql-pv-claim",
+// 								},
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
+
+//		controllerutil.SetControllerReference(cr, dep, r.Scheme)
+//		return dep
+//	}
 func (r *WordpressReconciler) deploymentForMysql(cr *v1.Wordpress) *appsv1.Deployment {
 	labels := map[string]string{
 		"app": cr.Name,
@@ -22,6 +245,9 @@ func (r *WordpressReconciler) deploymentForMysql(cr *v1.Wordpress) *appsv1.Deplo
 		"tier": "mysql",
 	}
 
+	// Setting the replicas for the MySQL deployment
+	replicas := int32(*cr.Spec.MysqlReplicas)
+
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "wordpress-mysql",
@@ -30,6 +256,7 @@ func (r *WordpressReconciler) deploymentForMysql(cr *v1.Wordpress) *appsv1.Deplo
 		},
 
 		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas, // Set the replicas here
 			Selector: &metav1.LabelSelector{
 				MatchLabels: matchlabels,
 			},
@@ -40,16 +267,13 @@ func (r *WordpressReconciler) deploymentForMysql(cr *v1.Wordpress) *appsv1.Deplo
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "mysql",
-
-						Name: "mysql",
-
+						Name:  "mysql",
 						Env: []corev1.EnvVar{
 							{
 								Name:  "MYSQL_ROOT_PASSWORD",
 								Value: cr.Spec.SqlRootPassword,
 							},
 						},
-
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 3306,
 							Name:          "mysql",
@@ -60,15 +284,11 @@ func (r *WordpressReconciler) deploymentForMysql(cr *v1.Wordpress) *appsv1.Deplo
 								MountPath: "/var/lib/mysql",
 							},
 						},
-					},
-					},
-
+					}},
 					Volumes: []corev1.Volume{
-
 						{
 							Name: "mysql-persistent-storage",
 							VolumeSource: corev1.VolumeSource{
-
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mysql-pv-claim",
 								},

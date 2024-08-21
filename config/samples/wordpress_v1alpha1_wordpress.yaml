@@ -1,6 +1,15 @@
+# apiVersion: wordpress.gopkg.blogpost.com/v1alpha1
+# kind: Wordpress
+# metadata:
+#   name: wordpress-sample
+# spec:
+#   sqlRootPassword: "admin6783"
+#   replicas: 3
 apiVersion: wordpress.gopkg.blogpost.com/v1alpha1
 kind: Wordpress
 metadata:
   name: wordpress-sample
 spec:
   sqlRootPassword: "admin6783"
+  replicas: 3  # WordPress replicas
+  mysqlReplicas: 2  # MySQL replicas

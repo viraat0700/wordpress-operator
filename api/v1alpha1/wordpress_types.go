@@ -30,6 +30,12 @@ type WordpressSpec struct {
 
 	// SqlRootPassword can be used to set the root password for the MySQL database
 	SqlRootPassword string `json:"sqlRootPassword"`
+
+	// Replicas is the number of Wordpress replicas
+	Replicas *int32 `json:"replicas,omitempty"` // you have to add this line in order create replicas for wordpress
+
+	//MysqlReplicas is the number of Mysql replicas
+	MysqlReplicas *int32 `json:"mysqlReplicas,omitempty"` //you have to add this line in order to create replicas for mysql
 }
 
 // WordpressStatus defines the observed state of Wordpress
