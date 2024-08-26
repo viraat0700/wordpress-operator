@@ -84,12 +84,88 @@ import (
 
 // }
 
+// func (r *WordpressReconciler) deploymentForWordpress(cr *v1.Wordpress) *appsv1.Deployment {
+
+// 	labels := map[string]string{
+// 		"app": cr.Name,
+// 	}
+// 	matchlabels := map[string]string{
+// 		"app":  cr.Name,
+// 		"tier": "frontend",
+// 	}
+
+// 	// Set the number of replicas from the CR spec, default to 1 if not provided
+// 	replicas := int32(1) // Default value
+// 	if cr.Spec.Replicas != nil {
+// 		replicas = *cr.Spec.Replicas
+// 	}
+
+// 	dep := &appsv1.Deployment{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "wordpress",
+// 			Namespace: cr.Namespace,
+// 			Labels:    labels,
+// 		},
+
+// 		Spec: appsv1.DeploymentSpec{
+// 			Replicas: &replicas, // Set the replicas value
+// 			Selector: &metav1.LabelSelector{
+// 				MatchLabels: matchlabels,
+// 			},
+// 			Template: corev1.PodTemplateSpec{
+// 				ObjectMeta: metav1.ObjectMeta{
+// 					Labels: matchlabels,
+// 				},
+// 				Spec: corev1.PodSpec{
+// 					Containers: []corev1.Container{{
+// 						Image: "wordpress:5.4-apache",
+// 						Name:  "wordpress",
+
+// 						Env: []corev1.EnvVar{{
+// 							Name:  "WORDPRESS_DB_HOST",
+// 							Value: "wordpress-mysql",
+// 						},
+// 							{
+// 								Name:  "WORDPRESS_DB_PASSWORD",
+// 								Value: cr.Spec.SqlRootPassword,
+// 							},
+// 						},
+
+// 						Ports: []corev1.ContainerPort{{
+// 							ContainerPort: 80,
+// 							Name:          "wordpress-port",
+// 						}},
+// 						VolumeMounts: []corev1.VolumeMount{
+// 							{
+// 								Name:      "wordpress-persistent-storage",
+// 								MountPath: "/var/www/html",
+// 							},
+// 						},
+// 					}},
+// 					Volumes: []corev1.Volume{
+// 						{
+// 							Name: "wordpress-persistent-storage",
+// 							VolumeSource: corev1.VolumeSource{
+// 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+// 									ClaimName: "wp-pv-claim",
+// 								},
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
+
+//		controllerutil.SetControllerReference(cr, dep, r.Scheme)
+//		return dep
+//	}
 func (r *WordpressReconciler) deploymentForWordpress(cr *v1.Wordpress) *appsv1.Deployment {
 
 	labels := map[string]string{
 		"app": cr.Name,
 	}
-	matchlabels := map[string]string{
+	matchLabels := map[string]string{
 		"app":  cr.Name,
 		"tier": "frontend",
 	}
@@ -106,31 +182,36 @@ func (r *WordpressReconciler) deploymentForWordpress(cr *v1.Wordpress) *appsv1.D
 			Namespace: cr.Namespace,
 			Labels:    labels,
 		},
-
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas, // Set the replicas value
 			Selector: &metav1.LabelSelector{
-				MatchLabels: matchlabels,
+				MatchLabels: matchLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: matchlabels,
+					Labels: matchLabels,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Image: "wordpress:5.4-apache",
 						Name:  "wordpress",
-
-						Env: []corev1.EnvVar{{
-							Name:  "WORDPRESS_DB_HOST",
-							Value: "wordpress-mysql",
-						},
+						Env: []corev1.EnvVar{
 							{
-								Name:  "WORDPRESS_DB_PASSWORD",
-								Value: cr.Spec.SqlRootPassword,
+								Name:  "WORDPRESS_DB_HOST",
+								Value: "wordpress-mysql",
+							},
+							{
+								Name: "WORDPRESS_DB_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: &corev1.SecretKeySelector{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: "mysql-root-password-secret", // Name of the Kubernetes Secret
+										},
+										Key: "password", // Key in the Secret
+									},
+								},
 							},
 						},
-
 						Ports: []corev1.ContainerPort{{
 							ContainerPort: 80,
 							Name:          "wordpress-port",

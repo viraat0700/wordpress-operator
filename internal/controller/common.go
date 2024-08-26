@@ -184,3 +184,37 @@ func (r *WordpressReconciler) ensureBackupPVC(_ reconcile.Request,
 
 	return nil, nil
 }
+
+func (r *WordpressReconciler) ensureMysqlSecret(_ reconcile.Request,
+	instance *v1.Wordpress,
+	secret *corev1.Secret,
+) (*reconcile.Result, error) {
+
+	found := &corev1.Secret{}
+
+	err := r.Client.Get(context.TODO(), types.NamespacedName{
+		Name:      secret.Name,
+		Namespace: instance.Namespace,
+	}, found)
+
+	if err != nil && errors.IsNotFound(err) {
+		// Create the Secret
+		r.Log.Info("Creating a new MySQL Secret", "Secret.Namespace", secret.Namespace, "Secret.Name", secret.Name)
+		err = r.Client.Create(context.TODO(), secret)
+
+		if err != nil {
+			// Creation failed
+			r.Log.Error(err, "Failed to create new MySQL Secret", "Secret.Namespace", secret.Namespace, "Secret.Name", secret.Name)
+			return &reconcile.Result{}, err
+		}
+		// Creation was successful
+		return nil, nil
+
+	} else if err != nil {
+		// Error that isn't due to the Secret not existing
+		r.Log.Error(err, "Failed to get MySQL Secret")
+		return &ctrl.Result{}, err
+	}
+
+	return nil, nil
+}
